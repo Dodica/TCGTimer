@@ -1,0 +1,148 @@
+:root {
+  color-scheme: dark;
+  --bg: #071018;
+  --text: #f5f7fb;
+  --muted: rgba(245, 247, 251, 0.74);
+  --panel: rgba(12, 22, 34, 0.82);
+  --panel-border: rgba(255, 255, 255, 0.12);
+  --accent: #f0a330;
+  --stopwatch: #ff725a;
+  --columns: 1;
+  --rows: 1;
+  --title-size: 4rem;
+  --clock-size: 8rem;
+  --shell-padding: 0.75rem;
+  --grid-height: calc(100vh - 1.5rem);
+  --gap: 1rem;
+  --card-padding: 1rem;
+  --card-gap: 0.9rem;
+  --title-max-width: 100%;
+  font-family: "Segoe UI Variable Display", "Aptos", "Trebuchet MS", sans-serif;
+}
+
+body[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f8f2ea;
+  --text: #1d2430;
+  --muted: rgba(29, 36, 48, 0.68);
+  --panel: rgba(255, 255, 255, 0.82);
+  --panel-border: rgba(29, 36, 48, 0.1);
+  --accent: #b6631f;
+  --stopwatch: #d64838;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top left, rgba(240, 163, 48, 0.14), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(65, 131, 255, 0.12), transparent 34%),
+    var(--bg);
+  color: var(--text);
+}
+
+body {
+  min-height: 100vh;
+}
+
+.display-shell {
+  min-height: 100vh;
+  padding: var(--shell-padding);
+}
+
+.timer-grid {
+  min-height: var(--grid-height);
+  height: var(--grid-height);
+  display: grid;
+  grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
+  gap: var(--gap);
+}
+
+.timer-card,
+.empty-state {
+  border-radius: 32px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.18);
+}
+
+.timer-card {
+  min-height: 0;
+  padding: var(--card-padding);
+  display: grid;
+  align-content: center;
+  gap: var(--card-gap);
+  position: relative;
+  overflow: hidden;
+}
+
+.timer-grid.is-single .timer-card {
+  text-align: center;
+  justify-items: center;
+  align-content: center;
+}
+
+.timer-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -12% -35% auto;
+  width: 52%;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(240, 163, 48, 0.16), transparent 70%);
+  pointer-events: none;
+}
+
+.timer-card.is-stopwatch::after {
+  background: radial-gradient(circle, rgba(255, 114, 90, 0.18), transparent 70%);
+}
+
+.timer-title {
+  margin: 0;
+  font-size: var(--title-size);
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  max-width: var(--title-max-width);
+}
+
+.timer-value {
+  margin: 0;
+  font-family: "Bahnschrift", "Segoe UI", sans-serif;
+  font-size: var(--clock-size);
+  line-height: 0.82;
+  letter-spacing: -0.06em;
+  font-weight: 800;
+}
+
+.timer-card.is-stopwatch .timer-value {
+  color: var(--stopwatch);
+}
+
+.empty-state {
+  min-height: var(--grid-height);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 2rem;
+}
+
+.empty-state h1 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  line-height: 0.95;
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(1rem, 2vw, 1.4rem);
+}

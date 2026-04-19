@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TCG Timer Admin</title>
+    <link rel="stylesheet" href="/admin/style.css" />
+  </head>
+  <body data-theme="dark">
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Tournament Control</p>
+          <h1>TCG Timer Admin</h1>
+          <p class="hero-text">Simple live timer control for your tournaments, with instant sync to the display page.</p>
+        </div>
+
+        <div class="hero-actions">
+          <button id="theme-toggle" class="theme-toggle" type="button">Switch Theme</button>
+          <a class="display-link" href="/display/" target="_blank" rel="noreferrer">Open Display</a>
+        </div>
+      </header>
+
+      <section class="timers-panel">
+        <div class="panel-header">
+          <div>
+            <p class="section-label">Timers</p>
+            <p class="panel-text">Edit any title or duration. When a countdown ends it continues as a stopwatch.</p>
+          </div>
+
+          <button id="add-timer" class="add-timer" type="button">Add Timer</button>
+        </div>
+
+        <div id="connection-pill" class="connection-pill">Connecting...</div>
+        <div id="timer-list" class="timer-list"></div>
+      </section>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/shared/socket.js"></script>
+    <script src="/admin/script.js"></script>
+  </body>
+</html>
