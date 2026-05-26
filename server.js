@@ -7,6 +7,7 @@ const { Server } = require("socket.io");
 const HOST = process.env.HOST || "0.0.0.0";
 const PORT = Number(process.env.PORT) || 3000;
 const UPDATE_INTERVAL_MS = 250;
+const KEEPALIVE_INTERVAL_MS = 30 * 1000;
 const MAX_TIMERS = 12;
 const MAX_DURATION_MS = 12 * 60 * 60 * 1000;
 
@@ -160,8 +161,24 @@ app.get("/admin", (_request, response) => {
   response.redirect("/admin/");
 });
 
+app.get("/health", (_request, response) => {
+  response.json({
+    ok: true,
+    uptimeSeconds: Math.round(process.uptime()),
+    serverNow: Date.now()
+  });
+});
+
 io.on("connection", (socket) => {
   socket.emit("state", getSnapshot());
+
+  socket.on("client:keepalive", (payload = {}) => {
+    socket.emit("server:keepalive", {
+      intervalMs: KEEPALIVE_INTERVAL_MS,
+      clientSentAt: payload.sentAt || null,
+      serverNow: Date.now()
+    });
+  });
 
   socket.on("admin:set-theme", (payload = {}) => {
     state.theme = sanitizeTheme(payload.theme);
