@@ -114,6 +114,7 @@ input {
 
 .theme-toggle,
 .display-link,
+.shutdown-button,
 .add-timer,
 .card-button {
   border: 0;
@@ -125,6 +126,7 @@ input {
 
 .theme-toggle,
 .display-link,
+.shutdown-button,
 .add-timer {
   display: inline-flex;
   align-items: center;
@@ -151,8 +153,26 @@ input {
   text-decoration: none;
 }
 
+.shutdown-button {
+  background: rgba(255, 108, 91, 0.14);
+  color: var(--danger);
+  border: 1px solid rgba(255, 108, 91, 0.35);
+}
+
+.shutdown-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.shutdown-button.is-ended {
+  background: var(--accent-soft);
+  color: var(--text);
+  border-color: var(--border);
+}
+
 .theme-toggle:hover,
 .display-link:hover,
+.shutdown-button:hover:not(:disabled),
 .add-timer:hover,
 .card-button:hover {
   transform: translateY(-1px);

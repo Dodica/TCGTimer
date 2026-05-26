@@ -1,10 +1,11 @@
 window.TCGTimerSocket = (() => {
   const KEEPALIVE_INTERVAL_MS = 30 * 1000;
   const socket = io();
+  let keepaliveEnabled = true;
   let keepaliveTimerId = null;
 
   function sendKeepalive() {
-    if (!socket.connected) {
+    if (!keepaliveEnabled || !socket.connected) {
       return;
     }
 
@@ -19,13 +20,32 @@ window.TCGTimerSocket = (() => {
   }
 
   function startKeepalive() {
+    if (!keepaliveEnabled) {
+      return;
+    }
+
     stopKeepalive();
     sendKeepalive();
     keepaliveTimerId = window.setInterval(sendKeepalive, KEEPALIVE_INTERVAL_MS);
   }
 
+  function setKeepaliveEnabled(nextValue) {
+    keepaliveEnabled = Boolean(nextValue);
+
+    if (keepaliveEnabled && socket.connected) {
+      startKeepalive();
+      return;
+    }
+
+    stopKeepalive();
+  }
+
   socket.on("connect", startKeepalive);
   socket.on("disconnect", stopKeepalive);
+  socket.on("server:cloud-session-ended", () => {
+    setKeepaliveEnabled(false);
+    window.setTimeout(() => socket.disconnect(), 250);
+  });
 
   return {
     socket,
@@ -43,6 +63,10 @@ window.TCGTimerSocket = (() => {
     onDisconnect(handler) {
       socket.on("disconnect", handler);
       return () => socket.off("disconnect", handler);
-    }
+    },
+    connect() {
+      socket.connect();
+    },
+    setKeepaliveEnabled
   };
 })();

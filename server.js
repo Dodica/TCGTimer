@@ -56,6 +56,8 @@ let state = {
   theme: "dark",
   timers: hydrateTimers([{ title: "Round Timer", durationMs: 45 * 60 * 1000 }])
 };
+let cloudSessionActive = true;
+let connectedSockets = 0;
 
 function getElapsedMs(timer, now) {
   if (!timer.running || timer.startedAt === null) {
@@ -86,6 +88,7 @@ function getSnapshot(now = Date.now()) {
   return {
     serverNow: now,
     theme: state.theme,
+    cloudSessionActive,
     timers: state.timers.map((timer) => getTimerView(timer, now))
   };
 }
@@ -154,6 +157,10 @@ function startRenderSelfPing() {
   const healthUrl = new URL("/health", externalUrl).toString();
 
   setInterval(async () => {
+    if (!cloudSessionActive || connectedSockets === 0) {
+      return;
+    }
+
     try {
       const response = await fetch(healthUrl);
 
@@ -187,15 +194,26 @@ app.get("/admin", (_request, response) => {
 app.get("/health", (_request, response) => {
   response.json({
     ok: true,
+    cloudSessionActive,
+    connectedClients: connectedSockets,
     uptimeSeconds: Math.round(process.uptime()),
     serverNow: Date.now()
   });
 });
 
 io.on("connection", (socket) => {
+  connectedSockets += 1;
   socket.emit("state", getSnapshot());
 
+  socket.on("disconnect", () => {
+    connectedSockets = Math.max(connectedSockets - 1, 0);
+  });
+
   socket.on("client:keepalive", (payload = {}) => {
+    if (!cloudSessionActive) {
+      return;
+    }
+
     socket.emit("server:keepalive", {
       intervalMs: KEEPALIVE_INTERVAL_MS,
       clientSentAt: payload.sentAt || null,
@@ -205,6 +223,24 @@ io.on("connection", (socket) => {
 
   socket.on("admin:set-theme", (payload = {}) => {
     state.theme = sanitizeTheme(payload.theme);
+    emitState(io);
+  });
+
+  socket.on("admin:end-session", () => {
+    const now = Date.now();
+
+    cloudSessionActive = false;
+
+    for (const timer of state.timers) {
+      pauseTimer(timer, now);
+    }
+
+    io.emit("server:cloud-session-ended");
+    emitState(io);
+  });
+
+  socket.on("admin:start-session", () => {
+    cloudSessionActive = true;
     emitState(io);
   });
 

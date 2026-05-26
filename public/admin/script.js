@@ -2,6 +2,7 @@ const socketClient = window.TCGTimerSocket;
 
 const state = {
   snapshot: null,
+  receivedAt: Date.now(),
   connected: false
 };
 
@@ -11,6 +12,7 @@ const cardRegistry = new Map();
 const elements = {
   body: document.body,
   themeToggle: document.getElementById("theme-toggle"),
+  endSession: document.getElementById("end-session"),
   addTimer: document.getElementById("add-timer"),
   connectionPill: document.getElementById("connection-pill"),
   timerList: document.getElementById("timer-list")
@@ -42,6 +44,30 @@ function formatClock(durationMs, phase) {
   return `${prefix}${pad(minutes)}:${pad(seconds)}`;
 }
 
+function getProjectedTimers() {
+  if (!state.snapshot) {
+    return [];
+  }
+
+  const projectedServerNow = state.snapshot.serverNow + Math.max(Date.now() - state.receivedAt, 0);
+
+  return state.snapshot.timers.map((timer) => {
+    const elapsedMs = timer.running
+      ? timer.elapsedMs + Math.max(projectedServerNow - state.snapshot.serverNow, 0)
+      : timer.elapsedMs;
+    const phase = elapsedMs >= timer.durationMs ? "stopwatch" : "countdown";
+    const displayMs =
+      phase === "countdown" ? Math.max(timer.durationMs - elapsedMs, 0) : Math.max(elapsedMs - timer.durationMs, 0);
+
+    return {
+      ...timer,
+      elapsedMs,
+      phase,
+      displayMs
+    };
+  });
+}
+
 function getPhaseLabel(timer) {
   if (timer.phase === "stopwatch") {
     return timer.running ? "Stopwatch Live" : "Stopwatch Paused";
@@ -51,8 +77,14 @@ function getPhaseLabel(timer) {
 }
 
 function updateConnectionPill() {
-  elements.connectionPill.textContent = state.connected ? "Live sync connected" : "Reconnecting...";
-  elements.connectionPill.classList.toggle("is-offline", !state.connected);
+  const cloudSessionActive = state.snapshot?.cloudSessionActive !== false;
+
+  elements.connectionPill.textContent = cloudSessionActive
+    ? state.connected
+      ? "Live sync connected"
+      : "Reconnecting..."
+    : "Cloud session ended";
+  elements.connectionPill.classList.toggle("is-offline", !state.connected || !cloudSessionActive);
 }
 
 function sendTimerUpdate(timerId) {
@@ -241,13 +273,36 @@ function renderTimers(snapshot) {
   });
 }
 
+function renderClockValues() {
+  for (const timer of getProjectedTimers()) {
+    const registryEntry = cardRegistry.get(timer.id);
+
+    if (!registryEntry) {
+      continue;
+    }
+
+    registryEntry.card.classList.toggle("is-stopwatch", timer.phase === "stopwatch");
+    registryEntry.statePill.textContent = getPhaseLabel(timer);
+    registryEntry.statePill.classList.toggle("is-stopwatch", timer.phase === "stopwatch");
+    registryEntry.phaseLabel.textContent = timer.phase === "stopwatch" ? "Stopwatch" : "Countdown";
+    registryEntry.value.textContent = formatClock(timer.displayMs, timer.phase);
+  }
+}
+
 function render(snapshot) {
   state.snapshot = snapshot;
+  state.receivedAt = Date.now();
+  socketClient.setKeepaliveEnabled(snapshot.cloudSessionActive !== false);
   elements.body.dataset.theme = snapshot.theme;
   elements.themeToggle.textContent =
     snapshot.theme === "dark" ? "Switch To Light" : "Switch To Dark";
+  elements.endSession.textContent =
+    snapshot.cloudSessionActive === false ? "Resume Cloud Session" : "End Cloud Session";
+  elements.endSession.classList.toggle("is-ended", snapshot.cloudSessionActive === false);
 
   renderTimers(snapshot);
+  renderClockValues();
+  updateConnectionPill();
 }
 
 elements.themeToggle.addEventListener("click", () => {
@@ -259,6 +314,33 @@ elements.themeToggle.addEventListener("click", () => {
 
 elements.addTimer.addEventListener("click", () => {
   socketClient.emit("admin:add-timer");
+});
+
+elements.endSession.addEventListener("click", () => {
+  if (state.snapshot?.cloudSessionActive === false) {
+    socketClient.setKeepaliveEnabled(true);
+
+    if (socketClient.socket.connected) {
+      socketClient.emit("admin:start-session");
+      return;
+    }
+
+    socketClient.socket.once("connect", () => {
+      socketClient.emit("admin:start-session");
+    });
+    socketClient.connect();
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "End the cloud session? Timers will pause and keepalive traffic will stop so Render can go idle."
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  socketClient.emit("admin:end-session");
 });
 
 socketClient.onConnect(() => {
@@ -273,9 +355,9 @@ socketClient.onDisconnect(() => {
 
 socketClient.onState((snapshot) => {
   state.connected = true;
-  updateConnectionPill();
   render(snapshot);
 });
 
 state.connected = socketClient.socket.connected;
 updateConnectionPill();
+window.setInterval(renderClockValues, 250);

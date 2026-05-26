@@ -1,5 +1,10 @@
 const socketClient = window.TCGTimerSocket;
 const timerGrid = document.getElementById("timer-grid");
+const cardRegistry = new Map();
+const displayState = {
+  snapshot: null,
+  receivedAt: Date.now()
+};
 
 function clamp(value, minimum, maximum) {
   return Math.min(Math.max(value, minimum), maximum);
@@ -21,6 +26,32 @@ function formatClock(durationMs, phase) {
   }
 
   return `${prefix}${pad(minutes)}:${pad(seconds)}`;
+}
+
+function getProjectedTimers() {
+  const snapshot = displayState.snapshot;
+
+  if (!snapshot) {
+    return [];
+  }
+
+  const projectedServerNow = snapshot.serverNow + Math.max(Date.now() - displayState.receivedAt, 0);
+
+  return snapshot.timers.map((timer) => {
+    const elapsedMs = timer.running
+      ? timer.elapsedMs + Math.max(projectedServerNow - snapshot.serverNow, 0)
+      : timer.elapsedMs;
+    const phase = elapsedMs >= timer.durationMs ? "stopwatch" : "countdown";
+    const displayMs =
+      phase === "countdown" ? Math.max(timer.durationMs - elapsedMs, 0) : Math.max(elapsedMs - timer.durationMs, 0);
+
+    return {
+      ...timer,
+      elapsedMs,
+      phase,
+      displayMs
+    };
+  });
 }
 
 function chooseGrid(count, viewportWidth, viewportHeight, gap, shellPadding) {
@@ -129,9 +160,11 @@ function applyLayout(timers) {
 function render(snapshot) {
   document.body.dataset.theme = snapshot.theme;
   timerGrid.classList.toggle("is-single", snapshot.timers.length === 1);
-  applyLayout(snapshot.timers);
+  const projectedTimers = getProjectedTimers();
+  applyLayout(projectedTimers);
 
   if (snapshot.timers.length === 0) {
+    cardRegistry.clear();
     timerGrid.innerHTML = `
       <section class="empty-state">
         <div>
@@ -143,27 +176,50 @@ function render(snapshot) {
     return;
   }
 
-  timerGrid.innerHTML = snapshot.timers
+  timerGrid.innerHTML = projectedTimers
     .map(
       (timer) => `
         <section class="timer-card ${timer.phase === "stopwatch" ? "is-stopwatch" : ""}">
           <h1 class="timer-title">${timer.title}</h1>
-          <p class="timer-value">${formatClock(timer.displayMs, timer.phase)}</p>
+          <p class="timer-value" data-timer-id="${timer.id}">${formatClock(timer.displayMs, timer.phase)}</p>
         </section>
       `
     )
     .join("");
+
+  cardRegistry.clear();
+
+  for (const valueElement of timerGrid.querySelectorAll(".timer-value")) {
+    cardRegistry.set(valueElement.dataset.timerId, valueElement);
+  }
+}
+
+function renderClockValues() {
+  const timers = getProjectedTimers();
+
+  for (const timer of timers) {
+    const valueElement = cardRegistry.get(timer.id);
+
+    if (!valueElement) {
+      continue;
+    }
+
+    valueElement.textContent = formatClock(timer.displayMs, timer.phase);
+    valueElement.closest(".timer-card")?.classList.toggle("is-stopwatch", timer.phase === "stopwatch");
+  }
 }
 
 window.addEventListener("resize", () => {
-  const lastSnapshot = window.__TCG_TIMER_LAST_SNAPSHOT__;
-
-  if (lastSnapshot) {
-    applyLayout(lastSnapshot.timers);
+  if (displayState.snapshot) {
+    applyLayout(getProjectedTimers());
   }
 });
 
 socketClient.onState((snapshot) => {
-  window.__TCG_TIMER_LAST_SNAPSHOT__ = snapshot;
+  displayState.snapshot = snapshot;
+  displayState.receivedAt = Date.now();
+  socketClient.setKeepaliveEnabled(snapshot.cloudSessionActive !== false);
   render(snapshot);
 });
+
+window.setInterval(renderClockValues, 250);
