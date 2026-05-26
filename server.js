@@ -8,6 +8,7 @@ const HOST = process.env.HOST || "0.0.0.0";
 const PORT = Number(process.env.PORT) || 3000;
 const UPDATE_INTERVAL_MS = 250;
 const KEEPALIVE_INTERVAL_MS = 30 * 1000;
+const RENDER_SELF_PING_INTERVAL_MS = Number(process.env.RENDER_SELF_PING_INTERVAL_MS) || 10 * 60 * 1000;
 const MAX_TIMERS = 12;
 const MAX_DURATION_MS = 12 * 60 * 60 * 1000;
 
@@ -143,6 +144,28 @@ function getLocalIpv4Addresses() {
   return addresses;
 }
 
+function startRenderSelfPing() {
+  const externalUrl = process.env.RENDER_EXTERNAL_URL;
+
+  if (!externalUrl) {
+    return;
+  }
+
+  const healthUrl = new URL("/health", externalUrl).toString();
+
+  setInterval(async () => {
+    try {
+      const response = await fetch(healthUrl);
+
+      if (!response.ok) {
+        console.warn(`Render self-ping returned ${response.status}`);
+      }
+    } catch (error) {
+      console.warn(`Render self-ping failed: ${error.message}`);
+    }
+  }, RENDER_SELF_PING_INTERVAL_MS);
+}
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
@@ -243,6 +266,7 @@ setInterval(() => {
 
 server.listen(PORT, HOST, () => {
   console.log(`TCG Timer running on http://localhost:${PORT}`);
+  startRenderSelfPing();
 
   for (const address of getLocalIpv4Addresses()) {
     console.log(`Admin:   http://${address}:${PORT}/admin/`);
