@@ -191,6 +191,13 @@ input {
   margin-bottom: 1rem;
 }
 
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
 .connection-pill {
   display: inline-flex;
   align-items: center;
@@ -355,8 +362,17 @@ input {
   }
 
   .hero-actions,
+  .panel-actions,
   .panel-header {
     min-width: 0;
+  }
+
+  .panel-actions {
+    justify-content: stretch;
+  }
+
+  .panel-actions > * {
+    flex: 1 1 12rem;
   }
 
   .card-actions {

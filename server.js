@@ -54,7 +54,7 @@ function hydrateTimers(timerConfigs = []) {
 
 let state = {
   theme: "dark",
-  timers: hydrateTimers([{ title: "Round Timer", durationMs: 45 * 60 * 1000 }])
+  timers: hydrateTimers([{ title: "Round Timer", durationMs: 50 * 60 * 1000 }])
 };
 let cloudSessionActive = true;
 let connectedSockets = 0;
@@ -250,7 +250,7 @@ io.on("connection", (socket) => {
     }
 
     const nextIndex = state.timers.length;
-    const durationMs = state.timers[nextIndex - 1]?.durationMs ?? 45 * 60 * 1000;
+    const durationMs = state.timers[nextIndex - 1]?.durationMs ?? 50 * 60 * 1000;
     const title = `Timer ${nextIndex + 1}`;
 
     state.timers.push(createTimer({ title, durationMs }, nextIndex));
